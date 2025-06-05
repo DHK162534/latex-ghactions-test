@@ -1,4 +1,4 @@
-name: Build LaTeX Document
+name: Build All LaTeX Files with "main" in Name
 
 on:
   push:
@@ -18,14 +18,40 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y texlive-xetex texlive-latex-recommended texlive-fonts-recommended texlive-science
 
-      - name: Compile LaTeX Document
-        working-directory: ./Manual
+      - name: Find and Compile LaTeX Files
         run: |
-          xelatex -interaction=nonstopmode main.tex
-          xelatex -interaction=nonstopmode main.tex
+          echo "Searching for main*.tex files..."
+          find . -type f -iname "*main*.tex"
 
-      - name: Upload PDF
+          for texfile in $(find . -type f -iname "*main*.tex"); do
+            echo "Compiling: $texfile"
+            dir=$(dirname "$texfile")
+            base=$(basename "$texfile" .tex)
+            cd "$dir"
+
+            xelatex -interaction=nonstopmode "$base.tex"
+            xelatex -interaction=nonstopmode "$base.tex"
+
+            cd -  # go back to root
+          done
+
+      - name: Upload PDFs
+        run: |
+          for pdf in $(find . -type f -iname "*main*.pdf"); do
+            echo "Uploading: $pdf"
+            base=$(basename "$pdf" .pdf)
+            dir=$(dirname "$pdf")
+
+            gh_output_name="${dir//[\/]/_}_${base}"
+            echo "::notice::Creating artifact: $gh_output_name"
+
+            mkdir -p temp_upload
+            cp "$pdf" "temp_upload/$gh_output_name.pdf"
+
+          done
+
+      - name: Push Artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: compiled-pdf
-          path: Manual/main.pdf
+          name: all-main-pdfs
+          path: temp_upload/
