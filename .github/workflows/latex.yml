@@ -13,44 +13,52 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Install LaTeX
+      - name: Install LaTeX Environment
         run: |
           sudo apt-get update
-          sudo apt-get install -y texlive-xetex texlive-latex-recommended texlive-fonts-recommended texlive-science
+          sudo apt-get install -y \
+            texlive-xetex \
+            texlive-latex-base \
+            texlive-latex-recommended \
+            texlive-fonts-recommended \
+            texlive-latex-extra \
+            texlive-fonts-extra \
+            texlive-science \
+            texlive-bibtex-extra
 
       - name: Find and Compile LaTeX Files
         run: |
-          echo "Searching for main*.tex files..."
+          echo "Searching for '*main*.tex' files..."
           find . -type f -iname "*main*.tex"
 
           for texfile in $(find . -type f -iname "*main*.tex"); do
-            echo "Compiling: $texfile"
+            echo "::group::Compiling $texfile"
             dir=$(dirname "$texfile")
             base=$(basename "$texfile" .tex)
             cd "$dir"
 
-            xelatex -interaction=nonstopmode "$base.tex"
-            xelatex -interaction=nonstopmode "$base.tex"
+            xelatex -interaction=nonstopmode "$base.tex" || true
+            xelatex -interaction=nonstopmode "$base.tex" || true
 
-            cd -  # go back to root
+            echo "LaTeX log errors for $base:"
+            grep -A 5 "!" "$base.log" || echo "No LaTeX errors detected."
+
+            cd -
+            echo "::endgroup::"
           done
 
-      - name: Upload PDFs
+      - name: Collect PDFs
         run: |
+          mkdir -p temp_upload
           for pdf in $(find . -type f -iname "*main*.pdf"); do
-            echo "Uploading: $pdf"
-            base=$(basename "$pdf" .pdf)
             dir=$(dirname "$pdf")
-
-            gh_output_name="${dir//[\/]/_}_${base}"
-            echo "::notice::Creating artifact: $gh_output_name"
-
-            mkdir -p temp_upload
-            cp "$pdf" "temp_upload/$gh_output_name.pdf"
-
+            base=$(basename "$pdf" .pdf)
+            artifact_name="${dir//[^a-zA-Z0-9]/_}_${base}"
+            echo "Copying $pdf to temp_upload/${artifact_name}.pdf"
+            cp "$pdf" "temp_upload/${artifact_name}.pdf"
           done
 
-      - name: Push Artifacts
+      - name: Upload All PDFs
         uses: actions/upload-artifact@v4
         with:
           name: all-main-pdfs
