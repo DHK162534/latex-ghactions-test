@@ -1,0 +1,31 @@
+name: Build LaTeX Document
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install LaTeX
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y texlive-xetex texlive-latex-recommended texlive-fonts-recommended texlive-science
+
+      - name: Compile LaTeX Document
+        working-directory: ./Manual
+        run: |
+          xelatex -interaction=nonstopmode main.tex
+          xelatex -interaction=nonstopmode main.tex
+
+      - name: Upload PDF
+        uses: actions/upload-artifact@v4
+        with:
+          name: compiled-pdf
+          path: Manual/main.pdf
